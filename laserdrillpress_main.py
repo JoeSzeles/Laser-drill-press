@@ -20,44 +20,66 @@ def send_command(serial_port, command):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to send command: {e}")
 
+import tkinter as tk
+from tkinter import ttk, messagebox, scrolledtext
+import serial
+from PIL import Image, ImageTk
+
 class LaserDrillPressApp:
     def __init__(self, root):
         self.root = root
         self.serial_port = setup_serial()
 
-        # Load the background image
+        # Setup GUI title, geometry, and background image
+        self.root.title("Laser Drill Press Application")
+        self.root.geometry("800x600")
         self.background_image = Image.open("background_2.png")
         self.background_photo = ImageTk.PhotoImage(self.background_image)
-
-        # Create a Label to put the background image
         self.background_label = tk.Label(root, image=self.background_photo)
         self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
 
-        self.root.title("Laser Drill Press Application")
-        self.root.geometry("500x500")  # Increased height to accommodate new input boxes
-
-        # Diameter input
-        ttk.Label(root, text="Diameter (mm):").pack(pady=(20, 5))
+        # Setup labels and entries
+        ttk.Label(root, text="Diameter (mm):").grid(row=0, column=0, padx=10, pady=10, sticky='e')
         self.diameter_entry = ttk.Entry(root)
-        self.diameter_entry.pack()
+        self.diameter_entry.grid(row=0, column=1, padx=10, pady=10, sticky='w')
 
-        # Speed input
-        ttk.Label(root, text="Cutting Speed (mm/min):").pack(pady=5)
+        ttk.Label(root, text="Cutting Speed (mm/min):").grid(row=1, column=0, padx=10, pady=10, sticky='e')
         self.speed_entry = ttk.Entry(root)
-        self.speed_entry.pack()
+        self.speed_entry.grid(row=1, column=1, padx=10, pady=10, sticky='w')
 
-        # Power input
-        ttk.Label(root, text="Laser Power (max 1000):").pack(pady=5)
+        ttk.Label(root, text="Laser Power (max 1000):").grid(row=2, column=0, padx=10, pady=10, sticky='e')
         self.power_entry = ttk.Entry(root)
-        self.power_entry.pack()
+        self.power_entry.grid(row=2, column=1, padx=10, pady=10, sticky='w')
 
-        # Action buttons
-        ttk.Button(root, text="Move to Center and Mark", command=self.move_and_mark).pack(pady=10)
-        ttk.Button(root, text="Cut Circle", command=self.cut_circle).pack(pady=10)
-        ttk.Button(root, text="Cut Square", command=self.cut_square).pack(pady=10)
-        ttk.Button(root, text="Cut Hexagon", command=self.cut_hexagon).pack(pady=10)
-        ttk.Button(root, text="Stop Laser", command=self.stop_laser).pack(pady=10)
-        ttk.Button(root, text="Home", command=self.home_machine).pack(pady=10)  # Home button
+
+        # Width input
+        ttk.Label(root, text="Width (mm):").grid(row=3, column=0, padx=10, pady=10, sticky='e')
+        self.width_entry = ttk.Entry(root)
+        self.width_entry.grid(row=3, column=1, padx=10, pady=10, sticky='w')
+
+        # Length input
+        ttk.Label(root, text="Length (mm):").grid(row=4, column=0, padx=10, pady=10, sticky='e')
+        self.length_entry = ttk.Entry(root)
+        self.length_entry.grid(row=4, column=1, padx=10, pady=10, sticky='w')
+
+        # Setup buttons
+        ttk.Button(root, text="Move to Center and Mark", command=self.move_and_mark).grid(row=5, column=0, padx=10, pady=10, sticky='ew')
+        ttk.Button(root, text="Cut Circle", command=self.cut_circle).grid(row=5, column=1, padx=10, pady=10, sticky='ew')
+        ttk.Button(root, text="Cut Square", command=self.cut_square).grid(row=6, column=0, padx=10, pady=10, sticky='ew')
+        ttk.Button(root, text="Cut Hexagon", command=self.cut_hexagon).grid(row=6, column=1, padx=10, pady=10, sticky='ew')
+        ttk.Button(root, text="Cut Rectangle", command=self.cut_rectangle).grid(row=7, column=1, padx=10, pady=10, sticky='ew')
+        ttk.Button(root, text="Stop Laser", command=self.stop_laser).grid(row=8, column=0, padx=10, pady=10, sticky='ew')
+        ttk.Button(root, text="Home", command=self.home_machine).grid(row=8, column=1, padx=10, pady=10, sticky='ew')
+
+        # Setup instruction text area
+        instructions = "Place detailed instructions or additional information here."
+        text_area = scrolledtext.ScrolledText(root, height=10, wrap=tk.WORD)
+        text_area.grid(row=9, column=0, columnspan=2, padx=10, pady=10, sticky='ew')
+        text_area.insert(tk.END, instructions)
+        text_area.configure(state='disabled')
+
+
+
     def move_and_mark(self):
         # First, ensure the laser is off before starting a new operation
         send_command(self.serial_port, "M5")
@@ -144,6 +166,42 @@ class LaserDrillPressApp:
 
         for cmd in commands:
             send_command(self.serial_port, cmd)
+
+
+
+    def cut_rectangle(self):
+        width = float(self.width_entry.get())
+        length = float(self.length_entry.get())
+        speed = self.speed_entry.get()
+        power = int(self.power_entry.get())
+
+        # Center point for the rectangle (adjust these as needed)
+        x_center = 200
+        y_center = 200
+
+        # Calculate corner positions based on width and length
+        half_width = width / 2
+        half_length = length / 2
+
+        top_left = (x_center - half_width, y_center + half_length)
+        top_right = (x_center + half_width, y_center + half_length)
+        bottom_right = (x_center + half_width, y_center - half_length)
+        bottom_left = (x_center - half_width, y_center - half_length)
+
+        commands = [
+            "M5",  # Ensure the laser is off before starting
+            f"M3 S{power}",  # Turn on the laser
+            f"G0 X{top_left[0]} Y{top_left[1]}",  # Move to the starting position (top-left corner)
+            f"G1 X{top_right[0]} Y{top_right[1]} F{speed}",  # Draw to top-right
+            f"G1 X{bottom_right[0]} Y{bottom_right[1]} F{speed}",  # Draw to bottom-right
+            f"G1 X{bottom_left[0]} Y{bottom_left[1]} F{speed}",  # Draw to bottom-left
+            f"G1 X{top_left[0]} Y{top_left[1]} F{speed}",  # Draw back to top-left to close the rectangle
+            "M5"  # Turn off the laser
+        ]
+
+        for cmd in commands:
+            send_command(self.serial_port, cmd)
+
 
 
     def stop_laser(self):
