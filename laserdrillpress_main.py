@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import serial
 from PIL import Image, ImageTk  # Import necessary modules from PIL
+import math
 def setup_serial():
     try:
         serial_port = serial.Serial('COM3', 115200, timeout=1)
@@ -53,6 +54,8 @@ class LaserDrillPressApp:
         # Action buttons
         ttk.Button(root, text="Move to Center and Mark", command=self.move_and_mark).pack(pady=10)
         ttk.Button(root, text="Cut Circle", command=self.cut_circle).pack(pady=10)
+        ttk.Button(root, text="Cut Square", command=self.cut_square).pack(pady=10)
+        ttk.Button(root, text="Cut Hexagon", command=self.cut_hexagon).pack(pady=10)
         ttk.Button(root, text="Stop Laser", command=self.stop_laser).pack(pady=10)
         ttk.Button(root, text="Home", command=self.home_machine).pack(pady=10)  # Home button
     def move_and_mark(self):
@@ -77,6 +80,71 @@ class LaserDrillPressApp:
         ]
         for cmd in commands:
             send_command(self.serial_port, cmd)
+
+    def cut_square(self):
+        side_length = float(self.diameter_entry.get())  # Reusing the diameter entry as the side length for simplicity
+        half_side = side_length / 2
+        speed = self.speed_entry.get()
+        power = int(self.power_entry.get())
+
+        # Calculate corner positions
+        x_center = 200
+        y_center = 200
+        top_left = (x_center - half_side, y_center + half_side)
+        top_right = (x_center + half_side, y_center + half_side)
+        bottom_right = (x_center + half_side, y_center - half_side)
+        bottom_left = (x_center - half_side, y_center - half_side)
+
+        commands = [
+            "M5",  # Ensure the laser is off before starting
+            f"M3 S{power}",  # Turn on the laser
+            f"G0 X{top_left[0]} Y{top_left[1]}",  # Move to the starting position (top-left corner)
+            f"G1 X{top_right[0]} Y{top_right[1]} F{speed}",  # Draw to top-right
+            f"G1 X{bottom_right[0]} Y{bottom_right[1]} F{speed}",  # Draw to bottom-right
+            f"G1 X{bottom_left[0]} Y{bottom_left[1]} F{speed}",  # Draw to bottom-left
+            f"G1 X{top_left[0]} Y{top_left[1]} F{speed}",  # Draw back to top-left to close the square
+            "M5"  # Turn off the laser
+        ]
+
+        for cmd in commands:
+            send_command(self.serial_port, cmd)
+
+
+    def cut_hexagon(self):
+        radius = float(self.diameter_entry.get())  # Assuming this entry now captures the radius for the hexagon
+        speed = self.speed_entry.get()
+        power = int(self.power_entry.get())
+
+        # Central point (change these as necessary)
+        x_center = 200
+        y_center = 200
+
+        # Calculate vertex coordinates
+        vertices = []
+        for i in range(6):
+            angle_deg = 60 * i - 30  # Starts the hexagon flat on the top
+            angle_rad = math.radians(angle_deg)
+            x = x_center + radius * math.cos(angle_rad)
+            y = y_center + radius * math.sin(angle_rad)
+            vertices.append((x, y))
+
+        commands = [
+            "M5",  # Ensure the laser is off before starting
+            f"M3 S{power}",  # Turn on the laser
+            f"G0 X{vertices[0][0]} Y{vertices[0][1]}",  # Move to the first vertex
+        ]
+
+        # Draw lines between vertices
+        for vertex in vertices[1:]:
+            commands.append(f"G1 X{vertex[0]} Y{vertex[1]} F{speed}")
+        # Close the hexagon by drawing a line back to the first vertex
+        commands.append(f"G1 X{vertices[0][0]} Y{vertices[0][1]} F{speed}")
+
+        commands.append("M5")  # Turn off the laser
+
+        for cmd in commands:
+            send_command(self.serial_port, cmd)
+
 
     def stop_laser(self):
         send_command(self.serial_port, "M5")
